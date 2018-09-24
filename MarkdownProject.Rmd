@@ -1,0 +1,95 @@
+---
+title: "Median income in PA counties"
+author: "Steve R."
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+description: PA median income choropleth
+---
+
+# Mapping median income by county in Pennsylvania ###
+
+This is a simple analysis producing a data table and static choropleth graphic depicting the median income of Pennslyvania's counties, according to 2016 U.S. Census data.
+
+### Install packages and load libraries
+```{r Packages and libraries}
+options(repos="https://cran.rstudio.com")
+install.packages("rmarkdown")
+install.packages("tidyverse")
+install.packages("sf")
+install.packages("viridis")
+install.packages("tigris")
+install.packages("ggplot2")
+library(ggplot2)
+library(sf)
+library(tigris)
+library(dplyr)
+```
+
+### Set sf option
+```{r sf option}
+options(tigris_class = "sf")
+```
+
+### Load Pennsylvania data
+```{r load state data}
+pa <- counties("PA", cb=T)
+```
+
+### Plot Pennsylvania counties
+```{r Plot Pennsylvania geograpy}
+ggplot(pa) + 
+  geom_sf() +
+  theme_void() +
+  theme(panel.grid.major = element_line(colour = 'transparent')) +
+  labs(title="Pennsylvania counties")
+```
+
+### Add Census key
+```{r Census key}
+Sys.setenv(CENSUS_KEY="bb35319b92c113f304adfb661e1b0ada4e7b5526")
+readRenviron("~/.Renviron")
+Sys.getenv("CENSUS_KEY")
+```
+
+### Install censusapi package and load library
+```{r censusapi}
+install.packages("censusapi")
+library(censusapi)
+```
+
+### Load Pennsylvania income data
+```{r Load income data}
+pa_income <- getCensus(name = "acs/acs5", vintage = 2016, 
+                       vars = c("NAME", "B19013_001E", "B19013_001M"), 
+                       region = "county:*", regionin = "state:42")
+head(pa_income)
+```
+
+### Join pennsylvania geography and income data
+```{r Join income and geography data}
+pa4ever <- left_join(pa, pa_income, by=c("COUNTYFP"="county"))
+View(pa4ever)
+```
+
+### Plot 2016 median income by county in Pennsylvania
+```{r Plot county income data}
+ggplot(pa4ever) + 
+  geom_sf(aes(fill=B19013_001E), color="white") +
+  theme_void() +
+  theme(panel.grid.major = element_line(colour = 'transparent')) +
+  scale_fill_distiller(palette="Greens", direction=1, name="Median income", labels=scales::dollar_format()) +
+  labs(title="2016 Median income in Pennsylvania counties", caption="Source: US Census/ACS5 2016")
+```
+
+### View table showing median income by county in Pennsylvania
+```{r View data table}
+County <- pa4ever$NAME.x
+Median_Income <- paste("$",format(pa4ever$B19013_001E, big.mark=","),sep="")
+med_income <- cbind(County,Median_Income)
+library(DT)
+datatable(med_income,extensions = "Buttons", options = list(
+  dom = "Bfrtip",
+  buttons = c("copy", "csv", "excel", "pdf", "print")))
+```
